@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HUD Reference Reconstruction</title>
+    <style>
+      :root {
+        --bg0: #05060a;
+        --bg1: #0b0d12;
+        --bg2: #170b11;
+        --panel: rgba(15, 10, 17, 0.72);
+        --panel-strong: rgba(20, 11, 17, 0.96);
+        --line: rgba(125, 35, 51, 0.75);
+        --line-soft: rgba(185, 91, 71, 0.35);
+        --gold: #e7b76a;
+        --gold-soft: #f4d394;
+        --amber: #d98e42;
+        --amber-2: #f0b96d;
+        --burgundy: #7c1d2c;
+        --crimson: #a53444;
+        --purple: #7050c4;
+        --purple-soft: rgba(149, 110, 221, 0.9);
+        --purple-glow: rgba(123, 88, 208, 0.38);
+        --text: #f3e6d2;
+        --muted: rgba(232, 199, 164, 0.66);
+        --dim: rgba(217, 173, 109, 0.4);
+        --green: #7fe19b;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: var(--bg0);
+        background:
+          linear-gradient(rgba(4, 5, 12, 0.18), rgba(15, 4, 12, 0.3)),
+          url("background.png") center / 100% 100% no-repeat;
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .hud {
+        position: relative;
+        width: min(100vw, calc(100vh * 1368 / 768));
+        height: min(100vh, calc(100vw * 768 / 1368));
+        aspect-ratio: 1368 / 768;
+        background: rgba(5, 6, 10, 0.08);
+        overflow: hidden;
+        isolation: isolate;
+      }
+
+      .hud::before {
+        content: "";
+        position: absolute;
+        inset: 22px 26px 20px 26px;
+        border: 1px solid rgba(162, 63, 75, 0.32);
+        pointer-events: none;
+      }
+
+      .hud::after {
+        content: "";
+        position: absolute;
+        inset: 36px 42px 36px 42px;
+        border: 1px solid rgba(138, 61, 79, 0.14);
+        pointer-events: none;
+      }
+
+      .hud::before,
+      .hud::after,
+      .hud > :not(#crystal) {
+        display: none;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(179, 116, 134, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(179, 116, 134, 0.03) 1px, transparent 1px);
+        background-size: 22px 22px;
+        opacity: 0.6;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .panel {
+        position: absolute;
+        background: linear-gradient(180deg, rgba(21, 12, 17, 0.84), rgba(11, 9, 13, 0.84));
+        border: 1px solid rgba(145, 52, 64, 0.78);
+        box-shadow: inset 0 0 18px rgba(122, 42, 64, 0.18);
+        z-index: 5;
+      }
+
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 1px solid rgba(204, 148, 82, 0.1);
+        pointer-events: none;
+      }
+
+      .topbar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 98px;
+        border-bottom: 1px solid rgba(138, 49, 64, 0.72);
+        background: rgba(8, 9, 16, 0.12);
+        z-index: 7;
+      }
+
+      .tabs {
+        position: absolute;
+        left: 132px;
+        top: 24px;
+        display: flex;
+        gap: 18px;
+      }
+
+      .tab {
+        padding: 7px 12px;
+        border: 1px solid rgba(141, 56, 74, 0.7);
+        background: rgba(15, 10, 15, 0.35);
+        color: rgba(244, 214, 177, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        font-size: 9px;
+        line-height: 1;
+      }
+
+      .tab.active {
+        color: var(--gold-soft);
+        border-color: rgba(219, 156, 89, 0.8);
+        box-shadow: inset 0 0 12px rgba(206, 132, 68, 0.12);
+      }
+
+      .top-right {
+        position: absolute;
+        right: 56px;
+        top: 22px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .status-pill {
+        border: 1px solid rgba(159, 60, 75, 0.7);
+        padding: 6px 10px;
+        color: var(--gold-soft);
+        font-size: 8px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        background: rgba(14, 10, 16, 0.35);
+      }
+
+      .battery {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .battery-label {
+        color: rgba(236, 200, 166, 0.8);
+        font-size: 8px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+      }
+
+      .battery-box {
+        position: relative;
+        width: 38px;
+        height: 16px;
+        border: 1px solid rgba(145, 57, 70, 0.7);
+        background: rgba(13, 10, 18, 0.5);
+      }
+
+      .battery-box::after {
+        content: "";
+        position: absolute;
+        right: -6px;
+        top: 4px;
+        width: 4px;
+        height: 8px;
+        background: rgba(180, 86, 78, 0.95);
+      }
+
+      .battery-fill {
+        position: absolute;
+        inset: 2px 2px 2px 2px;
+        width: 70%;
+        background: linear-gradient(90deg, rgba(219, 145, 77, 0.9), rgba(244, 208, 99, 0.98));
+      }
+
+      .left-panel {
+        left: 52px;
+        top: 128px;
+        width: 268px;
+        height: 560px;
+      }
+
+      .left-header,
+      .right-header {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+          left: 44%;
+          top: 50%;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 9px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--gold-soft);
+      }
+
+      .mark {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--amber);
+        box-shadow: 0 0 12px rgba(238, 167, 89, 0.78);
+      }
+
+      .left-body {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 74px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .metric {
+        position: relative;
+        height: 90px;
+        border: 1px solid rgba(129, 56, 71, 0.72);
+        background: rgba(13, 9, 14, 0.36);
+      }
+
+      .metric-label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 11px 12px 0;
+        font-size: 9px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: rgba(242, 210, 175, 0.7);
+      }
+
+      .metric-value {
+        position: absolute;
+        right: 12px;
+        bottom: 22px;
+        font-family: "Courier New", monospace;
+        font-size: 20px;
+        letter-spacing: 1px;
+        color: var(--gold-soft);
+      }
+
+      .meter {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 10px;
+        height: 7px;
+        border: 1px solid rgba(168, 107, 78, 0.38);
+        background: rgba(10, 9, 13, 0.75);
+      }
+
+      .meter > span {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 68%;
+        background: linear-gradient(90deg, rgba(228, 159, 89, 0.8), rgba(245, 205, 112, 0.96));
+      }
+
+      .left-status {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 20px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .chip {
+        height: 26px;
+        border: 1px solid rgba(153, 76, 72, 0.76);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gold-soft);
+        font-size: 8px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        background: rgba(16, 11, 16, 0.4);
+      }
+
+      .right-panel {
+        right: 50px;
+        top: 122px;
+        width: 290px;
+        height: 600px;
+      }
+
+      .weather-box {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 64px;
+        bottom: 18px;
+      }
+
+      .weather-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: 6px 2px 10px;
+      }
+
+      .weather-temp {
+        font-family: "Courier New", monospace;
+        font-size: 38px;
+        color: var(--gold-soft);
+        letter-spacing: 1px;
+      }
+
+      .weather-tag {
+        font-size: 8px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: rgba(245, 214, 174, 0.72);
+      }
+
+      .forecast-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .forecast {
+        border: 1px solid rgba(142, 58, 71, 0.7);
+        background: rgba(16, 10, 14, 0.38);
+        min-height: 106px;
+        padding: 10px 6px 8px;
+        text-align: center;
+      }
+
+      .forecast-day {
+        font-size: 8px;
+        letter-spacing: 2px;
+        color: rgba(245, 214, 174, 0.72);
+        text-transform: uppercase;
+      }
+
+      .forecast-icon {
+        font-size: 22px;
+        margin: 8px 0 6px;
+      }
+
+      .forecast-temp {
+        font-family: "Courier New", monospace;
+        font-size: 18px;
+        color: var(--gold-soft);
+      }
+
+      .radar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 220px;
+        border: 1px solid rgba(151, 60, 70, 0.7);
+        background: rgba(12, 9, 15, 0.4);
+        overflow: hidden;
+      }
+
+      .radar::before,
+      .radar::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      .radar::before {
+        inset: 18px;
+        border: 1px solid rgba(149, 62, 74, 0.7);
+      }
+
+      .radar::after {
+        inset: 34px;
+        border: 1px solid rgba(149, 62, 74, 0.5);
+      }
+
+      .radar-sweep {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 68%;
+        height: 68%;
+        transform: translate(-50%, -50%);
+        background: conic-gradient(from 0deg, rgba(169, 116, 88, 0.05), rgba(236, 179, 92, 0.36), rgba(169, 116, 88, 0.05));
+        border-radius: 50%;
+        animation: sweep 8s linear infinite;
+        mask: radial-gradient(circle at center, transparent 0 58%, rgba(0,0,0,1) 60%, rgba(0,0,0,1) 100%);
+      }
+
+      @keyframes sweep {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      .center-wrap {
+        position: absolute;
+        left: 50%;
+        top: 47%;
+        width: min(640px, 42vw);
+        height: min(640px, 72vh);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .ring {
+        position: absolute;
+        inset: 50% auto auto 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        border: 1px solid rgba(145, 58, 69, 0.8);
+      }
+
+      .ring.r1 { width: 100%; height: 100%; }
+      .ring.r2 { width: 85%; height: 85%; }
+      .ring.r3 { width: 70%; height: 70%; }
+      .ring.r4 { width: 58%; height: 58%; }
+
+      .ring.r5 { width: 46%; height: 46%; }
+
+      .ring-label {
+        position: absolute;
+        font-size: 8px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: rgba(245, 217, 181, 0.72);
+      }
+
+      .ring-label.l1 { top: 11%; left: 50%; transform: translateX(-50%); }
+      .ring-label.l2 { bottom: 13%; left: 50%; transform: translateX(-50%); }
+      .ring-label.l3 { left: 9%; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+      .ring-label.l4 { right: 10%; top: 50%; transform: translateY(-50%) rotate(90deg); }
+
+      .tick {
+        position: absolute;
+        inset: 50% auto auto 50%;
+        width: 92%;
+        height: 92%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(229, 178, 103, 0.12) 0deg 2deg,
+          transparent 2deg 8deg
+        );
+      }
+
+      .tick.alt {
+        width: 78%;
+        height: 78%;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(146, 109, 214, 0.20) 0deg 2deg,
+          transparent 2deg 9deg
+        );
+      }
+
+      .center-glow {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 440px;
+        height: 440px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(146, 112, 212, 0.32), rgba(90, 57, 115, 0.12) 38%, transparent 68%);
+        box-shadow: 0 0 120px rgba(152, 116, 203, 0.18);
+      }
+
+      .crystal {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        transform: none;
+        transform-origin: center center;
+        filter: drop-shadow(0 0 28px rgba(120, 87, 192, 0.55));
+        cursor: zoom-in;
+        transition: transform 520ms cubic-bezier(.2,.8,.2,1), filter 400ms ease;
+        z-index: 4;
+        pointer-events: auto;
+      }
+
+      .crystal-layer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transform: translateX(-70px);
+        transform-origin: center center;
+        pointer-events: none;
+        transition: transform 600ms cubic-bezier(.2,.8,.2,1), opacity 350ms ease;
+      }
+
+      .crystal-layer.full { opacity: .92; }
+      .crystal-layer.split { opacity: 0; }
+
+      .crystal.is-inspecting {
+        transform: scale(1.08);
+        filter: drop-shadow(0 0 36px rgba(145, 100, 236, .8));
+        cursor: zoom-out;
+      }
+
+      .crystal.is-inspecting .crystal-layer.full { opacity: 0; }
+      .crystal.is-inspecting .crystal-layer.split {
+        opacity: .98;
+        transform: translateX(-70px);
+      }
+
+      .crystal-readout {
+        position: absolute;
+        left: 50%;
+        top: calc(50% + 280px);
+        transform: translateX(-50%);
+        color: var(--gold-soft);
+        font: 8px "Courier New", monospace;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        opacity: 0;
+        transition: opacity 300ms ease;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      .crystal-readout.visible { opacity: .86; }
+
+      .node {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(239, 176, 82, 0.95);
+        box-shadow: 0 0 12px rgba(236, 173, 85, 0.9);
+      }
+
+      .node.n1 { left: 50%; top: 10%; transform: translate(-50%, -50%); }
+      .node.n2 { right: 9%; top: 50%; transform: translate(50%, -50%); }
+      .node.n3 { left: 50%; bottom: 10%; transform: translate(-50%, 50%); }
+      .node.n4 { left: 9%; top: 50%; transform: translate(-50%, -50%); }
+
+      .orbital {
+        position: absolute;
+        width: 112px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(181, 112, 79, 0.7);
+        background: rgba(17, 10, 14, 0.24);
+        color: rgba(244, 214, 177, 0.82);
+        text-transform: uppercase;
+        font-size: 8px;
+        letter-spacing: 3px;
+      }
+
+      .orbital.o1 { left: 50%; top: 6%; transform: translateX(-50%); }
+      .orbital.o2 { right: 1%; top: 48%; transform: rotate(90deg); }
+      .orbital.o3 { left: 50%; bottom: 6%; transform: translateX(-50%); }
+      .orbital.o4 { left: 1%; top: 48%; transform: rotate(-90deg); }
+
+      .date-plate {
+        position: absolute;
+        right: 360px;
+        top: 128px;
+        width: 224px;
+        border: 1px solid rgba(160, 70, 81, 0.7);
+        background: rgba(15, 10, 14, 0.45);
+        padding: 12px 12px 10px;
+        text-align: center;
+        z-index: 6;
+      }
+
+      .date-time {
+        font-family: "Courier New", monospace;
+        font-size: 22px;
+        color: var(--gold-soft);
+        letter-spacing: 2px;
+      }
+
+      .date-label {
+        margin-top: 5px;
+        font-size: 8px;
+        letter-spacing: 3px;
+        color: rgba(245, 214, 177, 0.72);
+        text-transform: uppercase;
+      }
+
+      .radial-mini {
+        position: absolute;
+        right: 370px;
+        bottom: 165px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        border: 1px solid rgba(150, 63, 75, 0.75);
+        background: rgba(12, 8, 13, 0.3);
+        z-index: 6;
+      }
+
+      .radial-mini::before,
+      .radial-mini::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      .radial-mini::before {
+        inset: 20px;
+        border: 1px solid rgba(188, 104, 84, 0.45);
+      }
+
+      .radial-mini::after {
+        inset: 36px;
+        border: 1px solid rgba(147, 66, 79, 0.45);
+      }
+
+      .needle {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 2px;
+        height: 64px;
+        transform-origin: 50% 100%;
+        background: linear-gradient(180deg, rgba(245, 206, 161, 0), rgba(245, 206, 161, 1));
+        box-shadow: 0 0 12px rgba(245, 206, 161, 0.9);
+        transform: translate(-50%, -100%) rotate(20deg);
+      }
+
+      .mini-center {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: rgba(237, 179, 94, 1);
+        box-shadow: 0 0 10px rgba(237, 179, 94, 0.8);
+      }
+
+      .bottom-clock {
+        position: absolute;
+        left: 50%;
+        bottom: 70px;
+        transform: translateX(-50%);
+        width: 340px;
+        height: 110px;
+        border: 1px solid rgba(142, 59, 70, 0.72);
+        background: rgba(18, 12, 17, 0.45);
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 6;
+      }
+
+      .bottom-clock .time {
+        font-family: "Courier New", monospace;
+        font-size: 34px;
+        color: var(--gold-soft);
+        letter-spacing: 3px;
+      }
+
+      .bottom-clock .small-label {
+        margin-top: 4px;
+        font-size: 8px;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        color: rgba(245, 214, 177, 0.72);
+      }
+
+      .bottom-bar {
+        position: absolute;
+        left: 50%;
+        bottom: 28px;
+        transform: translateX(-50%);
+        width: 700px;
+        height: 28px;
+        border: 1px solid rgba(156, 60, 74, 0.72);
+        background: rgba(14, 10, 16, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        color: rgba(245, 214, 177, 0.72);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 8px;
+        z-index: 7;
+      }
+
+      .bottom-left,
+      .bottom-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(126, 234, 137, 0.96);
+        box-shadow: 0 0 12px rgba(126, 234, 137, 0.9);
+      }
+
+      .divider {
+        width: 1px;
+        height: 16px;
+        background: rgba(166, 76, 83, 0.7);
+      }
+
+      @media (max-width: 1400px) {
+        .left-panel { left: 32px; }
+        .right-panel { right: 32px; }
+        .date-plate { right: 344px; }
+        .radial-mini { right: 350px; }
+      }
+
+      @media (max-height: 820px) {
+        .center-wrap { top: 45%; }
+        .bottom-clock { bottom: 58px; }
+        .radial-mini { bottom: 132px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud">
+      <div class="grid"></div>
+
+      <header class="topbar">
+        <div class="tabs">
+          <div class="tab active">System</div>
+          <div class="tab">Comms</div>
+          <div class="tab">Power</div>
+          <div class="tab">Sweep</div>
+        </div>
+
+        <div class="top-right">
+          <div class="status-pill">Online</div>
+          <div class="battery">
+            <span class="battery-label">Volt</span>
+            <div class="battery-box"><div class="battery-fill"></div></div>
+            <span class="battery-label">82%</span>
+          </div>
+        </div>
+      </header>
+
+      <aside class="panel left-panel">
+        <div class="left-header">
+          <span class="mark"></span>
+          <span>Systems</span>
+          <span>▣</span>
+        </div>
+
+        <div class="left-body">
+          <div class="metric">
+            <div class="metric-label-row">
+              <span>CPU</span>
+              <span>68%</span>
+            </div>
+            <div class="meter"><span style="width: 68%"></span></div>
+            <div class="metric-value">68</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label-row">
+              <span>MEM</span>
+              <span>49%</span>
+            </div>
+            <div class="meter"><span style="width: 49%"></span></div>
+            <div class="metric-value">49</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label-row">
+              <span>NET</span>
+              <span>81%</span>
+            </div>
+            <div class="meter"><span style="width: 81%"></span></div>
+            <div class="metric-value">81</div>
+          </div>
+        </div>
+
+        <div class="left-status">
+          <div class="chip">Core online</div>
+          <div class="chip">Secure</div>
+          <div class="chip">Awaiting</div>
+        </div>
+      </aside>
+
+      <aside class="panel right-panel">
+        <div class="right-header">
+          <span>▣</span>
+          <span>Weather</span>
+          <span class="mark"></span>
+        </div>
+
+        <div class="weather-box">
+          <div class="weather-top">
+            <div class="weather-temp">76°</div>
+            <div class="weather-tag">Rain 38%</div>
+          </div>
+
+          <div class="forecast-row">
+            <div class="forecast">
+              <div class="forecast-day">Mon</div>
+              <div class="forecast-icon">☁</div>
+              <div class="forecast-temp">70°</div>
+            </div>
+            <div class="forecast">
+              <div class="forecast-day">Tue</div>
+              <div class="forecast-icon">☂</div>
+              <div class="forecast-temp">68°</div>
+            </div>
+            <div class="forecast">
+              <div class="forecast-day">Wed</div>
+              <div class="forecast-icon">☀</div>
+              <div class="forecast-temp">79°</div>
+            </div>
+          </div>
+
+          <div class="radar">
+            <div class="radar-sweep"></div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="center-wrap">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="ring r4"></div>
+        <div class="ring r5"></div>
+
+        <div class="tick"></div>
+        <div class="tick alt"></div>
+
+        <div class="center-glow"></div>
+
+        <div class="node n1"></div>
+        <div class="node n2"></div>
+        <div class="node n3"></div>
+        <div class="node n4"></div>
+
+        <div class="orbital o1">Signal</div>
+        <div class="orbital o2">Eng</div>
+        <div class="orbital o3">Sync</div>
+        <div class="orbital o4">Axis</div>
+
+        <div class="ring-label l1">Stabilized</div>
+        <div class="ring-label l2">Vector</div>
+        <div class="ring-label l3">Phase</div>
+        <div class="ring-label l4">Feed</div>
+
+      </div>
+
+      <div class="crystal" id="crystal" tabindex="0" aria-label="Interactive crystal pattern scan">
+        <img class="crystal-layer full" src="crystal/crystal-full.png" alt="">
+        <img class="crystal-layer split" src="crystal/crystal-split.png" alt="">
+      </div>
+      <div class="crystal-readout" id="crystal-readout">Pattern recognition // facets separated</div>
+
+      <div class="date-plate">
+        <div class="date-time">12:44</div>
+        <div class="date-label">Jul 12 // Local</div>
+      </div>
+
+      <div class="radial-mini">
+        <div class="needle"></div>
+        <div class="mini-center"></div>
+      </div>
+
+      <div class="bottom-clock">
+        <div class="time">22:14:06</div>
+        <div class="small-label">Orbital Sync</div>
+      </div>
+
+      <div class="bottom-bar">
+        <div class="bottom-left">
+          <span class="live-dot"></span>
+          <span>Live feed</span>
+          <span class="divider"></span>
+          <span>Link stable</span>
+        </div>
+
+        <div class="bottom-right">
+          <span>Audio</span>
+          <span>Vision</span>
+          <span>Control</span>
+        </div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const crystal = document.getElementById("crystal");
+        const readout = document.getElementById("crystal-readout");
+        let inspected = false;
+
+        const setInspection = (nextState) => {
+          inspected = nextState;
+          crystal.classList.toggle("is-inspecting", inspected);
+          readout.classList.toggle("visible", inspected);
+        };
+
+        crystal.addEventListener("click", () => setInspection(!inspected));
+        crystal.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setInspection(!inspected);
+          }
+        });
+        crystal.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          setInspection(event.deltaY < 0);
+        }, { passive: false });
+      })();
+    </script>
+  </body>
+</html>
